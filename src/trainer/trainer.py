@@ -70,21 +70,43 @@ class Trainer:
         except Exception:
             pass
 
-    def save(
-        self,
-    ):
-        if self.args.global_rank == 0:
+
+    def save(self):
+        if self.args.distributed:
+            # 分散式運算情況下，僅主節點 (rank 0) 儲存模型
+            if self.args.global_rank == 0:
+                print(f"\nsaving {self.iteration} model to {self.args.save_dir} ...")
+                # 儲存生成器 (從 DDP 模組中取出原始模型)
+                torch.save(
+                    self.netG.module.state_dict(),
+                    os.path.join(self.args.save_dir, f"G{str(self.iteration).zfill(7)}.pt")
+                )
+                # 儲存判別器
+                torch.save(
+                    self.netD.module.state_dict(),
+                    os.path.join(self.args.save_dir, f"D{str(self.iteration).zfill(7)}.pt")
+                )
+                # 儲存優化器
+                torch.save(
+                    {"optimG": self.optimG.state_dict(), "optimD": self.optimD.state_dict()},
+                    os.path.join(self.args.save_dir, f"O{str(self.iteration).zfill(7)}.pt"),
+                )
+        else:
+            # 非分散式運算情況
             print(f"\nsaving {self.iteration} model to {self.args.save_dir} ...")
             torch.save(
-                self.netG.module.state_dict(), os.path.join(self.args.save_dir, f"G{str(self.iteration).zfill(7)}.pt")
+                self.netG.state_dict(),
+                os.path.join(self.args.save_dir, f"G{str(self.iteration).zfill(7)}.pt")
             )
             torch.save(
-                self.netD.module.state_dict(), os.path.join(self.args.save_dir, f"D{str(self.iteration).zfill(7)}.pt")
+                self.netD.state_dict(),
+                os.path.join(self.args.save_dir, f"D{str(self.iteration).zfill(7)}.pt")
             )
             torch.save(
                 {"optimG": self.optimG.state_dict(), "optimD": self.optimD.state_dict()},
                 os.path.join(self.args.save_dir, f"O{str(self.iteration).zfill(7)}.pt"),
             )
+
 
     def train(self):
         pbar = range(self.iteration, self.args.iterations)
